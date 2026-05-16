@@ -12,10 +12,16 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PublicationsIndexRouteImport } from './routes/publications.index'
+import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as ReaderIdRouteImport } from './routes/reader.$id'
 import { Route as PublicationsIdRouteImport } from './routes/publications.$id'
+import { Route as AdminUsersRouteImport } from './routes/admin.users'
+import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
+import { Route as AdminPublicationsRouteImport } from './routes/admin.publications'
+import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
 
 const SearchRoute = SearchRouteImport.update({
   id: '/search',
@@ -32,6 +38,11 @@ const DashboardRoute = DashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -41,6 +52,11 @@ const PublicationsIndexRoute = PublicationsIndexRouteImport.update({
   id: '/publications/',
   path: '/publications/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRoute,
 } as any)
 const ReaderIdRoute = ReaderIdRouteImport.update({
   id: '/reader/$id',
@@ -52,14 +68,40 @@ const PublicationsIdRoute = PublicationsIdRouteImport.update({
   path: '/publications/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminUsersRoute = AdminUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSettingsRoute = AdminSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminPublicationsRoute = AdminPublicationsRouteImport.update({
+  id: '/publications',
+  path: '/publications',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminAnalyticsRoute = AdminAnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
+  getParentRoute: () => AdminRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/search': typeof SearchRoute
+  '/admin/analytics': typeof AdminAnalyticsRoute
+  '/admin/publications': typeof AdminPublicationsRoute
+  '/admin/settings': typeof AdminSettingsRoute
+  '/admin/users': typeof AdminUsersRoute
   '/publications/$id': typeof PublicationsIdRoute
   '/reader/$id': typeof ReaderIdRoute
+  '/admin/': typeof AdminIndexRoute
   '/publications/': typeof PublicationsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -67,29 +109,46 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/search': typeof SearchRoute
+  '/admin/analytics': typeof AdminAnalyticsRoute
+  '/admin/publications': typeof AdminPublicationsRoute
+  '/admin/settings': typeof AdminSettingsRoute
+  '/admin/users': typeof AdminUsersRoute
   '/publications/$id': typeof PublicationsIdRoute
   '/reader/$id': typeof ReaderIdRoute
+  '/admin': typeof AdminIndexRoute
   '/publications': typeof PublicationsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/search': typeof SearchRoute
+  '/admin/analytics': typeof AdminAnalyticsRoute
+  '/admin/publications': typeof AdminPublicationsRoute
+  '/admin/settings': typeof AdminSettingsRoute
+  '/admin/users': typeof AdminUsersRoute
   '/publications/$id': typeof PublicationsIdRoute
   '/reader/$id': typeof ReaderIdRoute
+  '/admin/': typeof AdminIndexRoute
   '/publications/': typeof PublicationsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin'
     | '/dashboard'
     | '/login'
     | '/search'
+    | '/admin/analytics'
+    | '/admin/publications'
+    | '/admin/settings'
+    | '/admin/users'
     | '/publications/$id'
     | '/reader/$id'
+    | '/admin/'
     | '/publications/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -97,22 +156,34 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/search'
+    | '/admin/analytics'
+    | '/admin/publications'
+    | '/admin/settings'
+    | '/admin/users'
     | '/publications/$id'
     | '/reader/$id'
+    | '/admin'
     | '/publications'
   id:
     | '__root__'
     | '/'
+    | '/admin'
     | '/dashboard'
     | '/login'
     | '/search'
+    | '/admin/analytics'
+    | '/admin/publications'
+    | '/admin/settings'
+    | '/admin/users'
     | '/publications/$id'
     | '/reader/$id'
+    | '/admin/'
     | '/publications/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRouteWithChildren
   DashboardRoute: typeof DashboardRoute
   LoginRoute: typeof LoginRoute
   SearchRoute: typeof SearchRoute
@@ -144,6 +215,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -157,6 +235,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/publications/'
       preLoaderRoute: typeof PublicationsIndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRoute
     }
     '/reader/$id': {
       id: '/reader/$id'
@@ -172,11 +257,58 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicationsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/users': {
+      id: '/admin/users'
+      path: '/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AdminUsersRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/settings': {
+      id: '/admin/settings'
+      path: '/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AdminSettingsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/publications': {
+      id: '/admin/publications'
+      path: '/publications'
+      fullPath: '/admin/publications'
+      preLoaderRoute: typeof AdminPublicationsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/analytics': {
+      id: '/admin/analytics'
+      path: '/analytics'
+      fullPath: '/admin/analytics'
+      preLoaderRoute: typeof AdminAnalyticsRouteImport
+      parentRoute: typeof AdminRoute
+    }
   }
 }
 
+interface AdminRouteChildren {
+  AdminAnalyticsRoute: typeof AdminAnalyticsRoute
+  AdminPublicationsRoute: typeof AdminPublicationsRoute
+  AdminSettingsRoute: typeof AdminSettingsRoute
+  AdminUsersRoute: typeof AdminUsersRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminAnalyticsRoute: AdminAnalyticsRoute,
+  AdminPublicationsRoute: AdminPublicationsRoute,
+  AdminSettingsRoute: AdminSettingsRoute,
+  AdminUsersRoute: AdminUsersRoute,
+  AdminIndexRoute: AdminIndexRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRouteWithChildren,
   DashboardRoute: DashboardRoute,
   LoginRoute: LoginRoute,
   SearchRoute: SearchRoute,
