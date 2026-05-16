@@ -39,7 +39,7 @@ function List_() {
   }, [search, q]);
 
   const setSearch = (patch: Partial<Search>) =>
-    nav({ search: (prev) => ({ ...prev, ...patch }) });
+    nav({ search: (prev: Search) => ({ ...prev, ...patch }) });
 
   const clear = () => nav({ search: {} });
 
