@@ -14,6 +14,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PublicationsIndexRouteImport } from './routes/publications.index'
+import { Route as ReaderIdRouteImport } from './routes/reader.$id'
 import { Route as PublicationsIdRouteImport } from './routes/publications.$id'
 
 const SearchRoute = SearchRouteImport.update({
@@ -41,6 +42,11 @@ const PublicationsIndexRoute = PublicationsIndexRouteImport.update({
   path: '/publications/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ReaderIdRoute = ReaderIdRouteImport.update({
+  id: '/reader/$id',
+  path: '/reader/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PublicationsIdRoute = PublicationsIdRouteImport.update({
   id: '/publications/$id',
   path: '/publications/$id',
@@ -53,6 +59,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/search': typeof SearchRoute
   '/publications/$id': typeof PublicationsIdRoute
+  '/reader/$id': typeof ReaderIdRoute
   '/publications/': typeof PublicationsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -61,6 +68,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/search': typeof SearchRoute
   '/publications/$id': typeof PublicationsIdRoute
+  '/reader/$id': typeof ReaderIdRoute
   '/publications': typeof PublicationsIndexRoute
 }
 export interface FileRoutesById {
@@ -70,6 +78,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/search': typeof SearchRoute
   '/publications/$id': typeof PublicationsIdRoute
+  '/reader/$id': typeof ReaderIdRoute
   '/publications/': typeof PublicationsIndexRoute
 }
 export interface FileRouteTypes {
@@ -80,6 +89,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/search'
     | '/publications/$id'
+    | '/reader/$id'
     | '/publications/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -88,6 +98,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/search'
     | '/publications/$id'
+    | '/reader/$id'
     | '/publications'
   id:
     | '__root__'
@@ -96,6 +107,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/search'
     | '/publications/$id'
+    | '/reader/$id'
     | '/publications/'
   fileRoutesById: FileRoutesById
 }
@@ -105,6 +117,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   SearchRoute: typeof SearchRoute
   PublicationsIdRoute: typeof PublicationsIdRoute
+  ReaderIdRoute: typeof ReaderIdRoute
   PublicationsIndexRoute: typeof PublicationsIndexRoute
 }
 
@@ -145,6 +158,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicationsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/reader/$id': {
+      id: '/reader/$id'
+      path: '/reader/$id'
+      fullPath: '/reader/$id'
+      preLoaderRoute: typeof ReaderIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/publications/$id': {
       id: '/publications/$id'
       path: '/publications/$id'
@@ -161,6 +181,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   SearchRoute: SearchRoute,
   PublicationsIdRoute: PublicationsIdRoute,
+  ReaderIdRoute: ReaderIdRoute,
   PublicationsIndexRoute: PublicationsIndexRoute,
 }
 export const routeTree = rootRouteImport
