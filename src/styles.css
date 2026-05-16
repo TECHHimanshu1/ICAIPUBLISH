@@ -140,12 +140,42 @@
 }
 
 @layer base {
-  * {
-    border-color: var(--color-border);
-  }
-
+  * { border-color: var(--color-border); }
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial;
   }
 }
+
+.icai-gradient { background: linear-gradient(135deg,#0b2a5b 0%,#061a3d 100%); }
+.icai-gold-bar { background: linear-gradient(90deg,#c9a24b,#e8c97a,#c9a24b); }
+
+/* ===== Flipbook 3D animation =====
+   perspective on the scene + rotateY on page with transform-origin on the
+   spine edge. JS toggles .is-flipping; on transitionend we advance
+   currentPage and reset the flip state. */
+.book-scene { perspective: 2200px; }
+.page {
+  background: linear-gradient(180deg,#fdfcf7,#f6f1e3);
+  border: 1px solid #e6dcc2;
+  box-shadow: 0 10px 30px rgba(0,0,0,.18), inset 0 0 60px rgba(120,90,30,.05);
+  border-radius: 4px;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.page-flip-right { transform-origin: left center; transition: transform 750ms cubic-bezier(.45,.05,.25,1), box-shadow 750ms ease; transform-style: preserve-3d; }
+.page-flip-right.is-flipping { transform: rotateY(-180deg); box-shadow: -30px 20px 60px rgba(0,0,0,.35); }
+.page-flip-left { transform-origin: right center; transition: transform 750ms cubic-bezier(.45,.05,.25,1), box-shadow 750ms ease; transform-style: preserve-3d; }
+.page-flip-left.is-flipping { transform: rotateY(180deg); box-shadow: 30px 20px 60px rgba(0,0,0,.35); }
+.page-curl::after {
+  content: ""; position: absolute; right: 0; bottom: 0;
+  width: 0; height: 0; border-style: solid;
+  border-width: 0; border-color: transparent transparent #e8d9a8 transparent;
+  transition: border-width 220ms ease;
+}
+.page-curl:hover::after {
+  border-width: 0 0 36px 36px;
+  filter: drop-shadow(-2px -2px 3px rgba(0,0,0,.2));
+}
+.no-select { user-select: none; -webkit-user-select: none; }
