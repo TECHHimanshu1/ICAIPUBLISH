@@ -328,18 +328,21 @@ function Spread({
   );
 }
 
-function SinglePage({ pageNum, pub, isFlipping, flipActive, direction, w, h }: { pageNum: number; pub: any; isFlipping: boolean; flipActive: boolean; direction: "next" | "prev" | null; w: number; h: number }) {
+function SinglePage({ pageNum, targetPage, pub, isFlipping, flipActive, direction, w, h }: { pageNum: number; targetPage: number; pub: any; isFlipping: boolean; flipActive: boolean; direction: "next" | "prev" | null; w: number; h: number }) {
+  const visiblePage = isFlipping && direction ? targetPage : pageNum;
+
   return (
-    <div className="relative shadow-2xl" style={{ width: w, height: h }}>
+    <div className="book-spread relative shadow-2xl" style={{ width: w, height: h }}>
       <div className="page page-curl relative h-full w-full">
-        <MockPage pageNum={pageNum} pub={pub} w={w} h={h} />
+        <MockPage pageNum={visiblePage} pub={pub} w={w} h={h} />
       </div>
       {isFlipping && (
         <div
-          className={`page absolute inset-0 z-10 ${direction === "next" ? "page-flip-right" : "page-flip-left"} ${flipActive ? "is-flipping" : ""}`}
+          className={`flip-sheet absolute inset-0 z-10 ${direction === "next" ? "page-flip-right" : "page-flip-left"} ${flipActive ? "is-flipping" : ""}`}
           style={{ transformOrigin: direction === "next" ? "left center" : "right center" }}
         >
-          <MockPage pageNum={pageNum} pub={pub} w={w} h={h} />
+          <div className="page flip-face flip-face-front"><MockPage pageNum={pageNum} pub={pub} w={w} h={h} /></div>
+          <div className="page flip-face flip-face-back"><MockPage pageNum={targetPage} pub={pub} w={w} h={h} /></div>
         </div>
       )}
     </div>
