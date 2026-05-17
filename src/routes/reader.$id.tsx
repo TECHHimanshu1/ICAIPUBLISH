@@ -211,9 +211,9 @@ function Reader() {
           style={{ transform: `scale(${zoom})`, transition: "transform 200ms" }}
         >
           {isMobile ? (
-            <SinglePage pageNum={currentPage} pub={pub} isFlipping={isFlipping} direction={direction} w={pageWidth} h={pageHeight} />
+            <SinglePage pageNum={currentPage} pub={pub} isFlipping={isFlipping} flipActive={flipActive} direction={direction} w={pageWidth} h={pageHeight} />
           ) : (
-            <Spread pageLeft={currentPage} pageRight={Math.min(totalPages, currentPage + 1)} pub={pub} isFlipping={isFlipping} direction={direction} w={pageWidth} h={pageHeight} />
+            <Spread pageLeft={currentPage} pageRight={Math.min(totalPages, currentPage + 1)} pub={pub} isFlipping={isFlipping} flipActive={flipActive} direction={direction} w={pageWidth} h={pageHeight} />
           )}
         </div>
 
