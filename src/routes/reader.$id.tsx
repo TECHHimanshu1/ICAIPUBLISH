@@ -38,6 +38,20 @@ function Reader() {
   const [currentPage, setCurrentPage] = useState(1);
   const [direction, setDirection] = useState<"next" | "prev" | null>(null);
   const [isFlipping, setIsFlipping] = useState(false);
+  const [flipActive, setFlipActive] = useState(false);
+
+  // When a flip starts, the overlay mounts WITHOUT `.is-flipping` so the
+  // browser records a starting transform of rotateY(0). On the next frame
+  // we add the class, which transitions to rotateY(±180deg) — that's what
+  // makes the page actually turn instead of snapping.
+  useEffect(() => {
+    if (!isFlipping) { setFlipActive(false); return; }
+    const r1 = requestAnimationFrame(() => {
+      const r2 = requestAnimationFrame(() => setFlipActive(true));
+      (window as any).__flipRaf = r2;
+    });
+    return () => cancelAnimationFrame(r1);
+  }, [isFlipping]);
   const [zoom, setZoom] = useState(1);
   const [viewMode, setViewMode] = useState<"fit-page" | "fit-width">("fit-page");
   const [pageInput, setPageInput] = useState("1");
