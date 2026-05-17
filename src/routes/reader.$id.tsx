@@ -92,6 +92,11 @@ function Reader() {
   // Step on Next: 1) lock 2) set direction & flip class 3) wait for transitionend
   // 4) increment currentPage and clear flipping state.
   const stepSize = isMobile ? 1 : 2;
+  const targetPage = direction === "next"
+    ? Math.min(totalPages, currentPage + stepSize)
+    : direction === "prev"
+      ? Math.max(1, currentPage - stepSize)
+      : currentPage;
 
   const goNext = useCallback(() => {
     if (isFlipping) return;
@@ -102,7 +107,7 @@ function Reader() {
       setCurrentPage((p) => Math.min(totalPages, p + stepSize));
       setIsFlipping(false);
       setDirection(null);
-    }, 760);
+    }, 880);
   }, [currentPage, isFlipping, stepSize, totalPages]);
 
   const goPrev = useCallback(() => {
@@ -114,7 +119,7 @@ function Reader() {
       setCurrentPage((p) => Math.max(1, p - stepSize));
       setIsFlipping(false);
       setDirection(null);
-    }, 760);
+    }, 880);
   }, [currentPage, isFlipping, stepSize]);
 
   const jumpTo = (n: number) => {
@@ -211,9 +216,9 @@ function Reader() {
           style={{ transform: `scale(${zoom})`, transition: "transform 200ms" }}
         >
           {isMobile ? (
-            <SinglePage pageNum={currentPage} pub={pub} isFlipping={isFlipping} flipActive={flipActive} direction={direction} w={pageWidth} h={pageHeight} />
+            <SinglePage pageNum={currentPage} targetPage={targetPage} pub={pub} isFlipping={isFlipping} flipActive={flipActive} direction={direction} w={pageWidth} h={pageHeight} />
           ) : (
-            <Spread pageLeft={currentPage} pageRight={Math.min(totalPages, currentPage + 1)} pub={pub} isFlipping={isFlipping} flipActive={flipActive} direction={direction} w={pageWidth} h={pageHeight} />
+            <Spread pageLeft={currentPage} pageRight={Math.min(totalPages, currentPage + 1)} targetPage={targetPage} totalPages={totalPages} pub={pub} isFlipping={isFlipping} flipActive={flipActive} direction={direction} w={pageWidth} h={pageHeight} />
           )}
         </div>
 
