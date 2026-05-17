@@ -11,6 +11,25 @@ import { getPublication } from "@/lib/mock";
 import { getSession, trackView } from "@/lib/auth";
 import { toast } from "sonner";
 
+const loadScript = (src: string) => {
+  return new Promise<void>((resolve, reject) => {
+    if (typeof window === "undefined") {
+      resolve();
+      return;
+    }
+    if (document.querySelector(`script[src="${src}"]`)) {
+      resolve();
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = src;
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject();
+    document.body.appendChild(script);
+  });
+};
+
 type S = { q?: string };
 export const Route = createFileRoute("/reader/$id")({
   validateSearch: (s): S => ({ q: s.q as string | undefined }),
@@ -30,42 +49,62 @@ function Reader() {
     setReady(true);
   }, [id, pub, nav]);
 
-  // --- Flipbook state -------------------------------------------------------
+  // --- Reader state -------------------------------------------------------
   // currentPage refers to the LEFT page of the visible spread on desktop, or
-  // the visible page on mobile. We animate by toggling .is-flipping on the
-  // outgoing page, then advance on transitionend.
+  // the visible page on mobile.
   const totalPages = pub?.pages ?? 32;
   const [currentPage, setCurrentPage] = useState(1);
-  const [direction, setDirection] = useState<"next" | "prev" | null>(null);
-  const [isFlipping, setIsFlipping] = useState(false);
-  const [flipActive, setFlipActive] = useState(false);
-
-  // When a flip starts, the overlay mounts WITHOUT `.is-flipping` so the
-  // browser records a starting transform of rotateY(0). On the next frame
-  // we add the class, which transitions to rotateY(±180deg) — that's what
-  // makes the page actually turn instead of snapping.
-  useEffect(() => {
-    if (!isFlipping) { setFlipActive(false); return; }
-    const r1 = requestAnimationFrame(() => {
-      const r2 = requestAnimationFrame(() => setFlipActive(true));
-      (window as any).__flipRaf = r2;
-    });
-    return () => cancelAnimationFrame(r1);
-  }, [isFlipping]);
   const [zoom, setZoom] = useState(1);
   const [viewMode, setViewMode] = useState<"fit-page" | "fit-width">("fit-page");
   const [pageInput, setPageInput] = useState("1");
   const [search, setSearch] = useState(q ?? "");
   const [isMobile, setIsMobile] = useState(false);
+  const [scriptsLoaded, setScriptsLoaded] = useState(false);
   const readerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { setPageInput(String(currentPage)); }, [currentPage]);
 
+  // Prevent browser window scrollbar from causing layout reflow / shaking loops
   useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
+    if (typeof window === "undefined") return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, []);
+
+  // Stable media query to avoid window resize/scrollbar toggling feedback loop
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const media = window.matchMedia("(max-width: 767px)");
+    const check = (e: MediaQueryListEvent | MediaQueryList) => setIsMobile(e.matches);
+    check(media);
+    
+    media.addEventListener("change", check);
+    return () => media.removeEventListener("change", check);
+  }, []);
+
+  // Dynamically load jQuery and turn.js on mount
+  useEffect(() => {
+    let active = true;
+    const init = async () => {
+      try {
+        if (!(window as any).$) {
+          await loadScript("/flipbook/jquery.js");
+        }
+        await loadScript("/flipbook/turn.js");
+        if (active) {
+          setScriptsLoaded(true);
+        }
+      } catch (err) {
+        console.error("Failed to load flipbook scripts", err);
+      }
+    };
+    init();
+    return () => {
+      active = false;
+    };
   }, []);
 
   // ===== DRM-ish protections (demo only) =====
@@ -89,42 +128,21 @@ function Reader() {
   }, [ready]);
 
   // ===== Page-turn logic =====
-  // Step on Next: 1) lock 2) set direction & flip class 3) wait for transitionend
-  // 4) increment currentPage and clear flipping state.
   const stepSize = isMobile ? 1 : 2;
-  const targetPage = direction === "next"
-    ? Math.min(totalPages, currentPage + stepSize)
-    : direction === "prev"
-      ? Math.max(1, currentPage - stepSize)
-      : currentPage;
 
   const goNext = useCallback(() => {
-    if (isFlipping) return;
     if (currentPage + stepSize > totalPages) return;
-    setDirection("next");
-    setIsFlipping(true);
-    window.setTimeout(() => {
-      setCurrentPage((p) => Math.min(totalPages, p + stepSize));
-      setIsFlipping(false);
-      setDirection(null);
-    }, 880);
-  }, [currentPage, isFlipping, stepSize, totalPages]);
+    setCurrentPage((p) => Math.min(totalPages, p + stepSize));
+  }, [currentPage, stepSize, totalPages]);
 
   const goPrev = useCallback(() => {
-    if (isFlipping) return;
     if (currentPage <= 1) return;
-    setDirection("prev");
-    setIsFlipping(true);
-    window.setTimeout(() => {
-      setCurrentPage((p) => Math.max(1, p - stepSize));
-      setIsFlipping(false);
-      setDirection(null);
-    }, 880);
-  }, [currentPage, isFlipping, stepSize]);
+    setCurrentPage((p) => Math.max(1, p - stepSize));
+  }, [currentPage, stepSize]);
 
   const jumpTo = (n: number) => {
     const clamped = Math.max(1, Math.min(totalPages, n));
-    if (clamped !== currentPage && !isFlipping) setCurrentPage(clamped);
+    if (clamped !== currentPage) setCurrentPage(clamped);
   };
 
   // Keyboard arrows
@@ -137,6 +155,65 @@ function Reader() {
     return () => window.removeEventListener("keydown", h);
   }, [goNext, goPrev]);
 
+  const pageWidth = viewMode === "fit-width" ? 460 : 380;
+  const pageHeight = viewMode === "fit-width" ? 600 : 520;
+
+  // Initialize and re-initialize turn.js when properties change
+  useEffect(() => {
+    if (!scriptsLoaded || !pub || !readerRef.current) return;
+
+    const $ = (window as any).$;
+    const $el = $(readerRef.current);
+
+    if ($el.data() && $el.data().turn) {
+      try {
+        $el.turn("destroy");
+      } catch (e) {
+        console.warn("Error destroying turn.js before re-init", e);
+      }
+    }
+
+    $el.turn({
+      width: isMobile ? pageWidth : pageWidth * 2,
+      height: pageHeight,
+      display: isMobile ? "single" : "double",
+      autoCenter: true,
+      pages: totalPages,
+      elevation: 50,
+      gradients: true,
+      acceleration: true,
+      when: {
+        turned: function (event: any, page: number, view: number[]) {
+          setCurrentPage(page);
+        }
+      }
+    });
+
+    $el.turn("page", currentPage);
+
+    return () => {
+      if ($el.data() && $el.data().turn) {
+        try {
+          $el.turn("destroy");
+        } catch (e) {
+          console.warn("Error destroying turn.js on unmount", e);
+        }
+      }
+    };
+  }, [scriptsLoaded, isMobile, pageWidth, pageHeight, totalPages]);
+
+  // Synchronize React state change to Turn.js page navigation
+  useEffect(() => {
+    if (!scriptsLoaded || !readerRef.current) return;
+    const $ = (window as any).$;
+    const $el = $(readerRef.current);
+    if ($el.data() && $el.data().turn) {
+      if ($el.turn("page") !== currentPage) {
+        $el.turn("page", currentPage);
+      }
+    }
+  }, [currentPage, scriptsLoaded]);
+
   // Mock search hits inside this publication
   const hits = useMemo(() => {
     if (!search.trim()) return [];
@@ -147,11 +224,8 @@ function Reader() {
 
   if (!ready || !pub) return null;
 
-  const pageWidth = viewMode === "fit-width" ? 460 : 380;
-  const pageHeight = viewMode === "fit-width" ? 600 : 520;
-
   return (
-    <div className="flex min-h-screen flex-col bg-[#0c1730] text-white no-select">
+    <div className="flex h-screen flex-col bg-[#0c1730] text-white no-select overflow-hidden">
       {/* Header bar */}
       <div className="border-b border-white/10 bg-[#091227]">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3">
@@ -169,8 +243,8 @@ function Reader() {
 
         {/* Toolbar */}
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-2 px-4 pb-3">
-          <Button size="sm" variant="secondary" onClick={goPrev} disabled={isFlipping || currentPage <= 1}><ChevronLeft className="h-4 w-4" /></Button>
-          <Button size="sm" variant="secondary" onClick={goNext} disabled={isFlipping || currentPage + stepSize > totalPages}><ChevronRight className="h-4 w-4" /></Button>
+          <Button size="sm" variant="secondary" onClick={goPrev} disabled={currentPage <= 1}><ChevronLeft className="h-4 w-4" /></Button>
+          <Button size="sm" variant="secondary" onClick={goNext} disabled={currentPage + stepSize > totalPages}><ChevronRight className="h-4 w-4" /></Button>
           <div className="flex items-center gap-1 text-xs">
             <Input
               value={pageInput}
@@ -209,48 +283,152 @@ function Reader() {
       </div>
 
       {/* Reader stage */}
-      <div className="flex flex-1 flex-col items-center gap-4 px-4 py-6">
-        <div
-          ref={readerRef}
-          className="book-scene flex items-center justify-center"
-          style={{ transform: `scale(${zoom})`, transition: "transform 200ms" }}
-        >
-          {isMobile ? (
-            <SinglePage pageNum={currentPage} targetPage={targetPage} pub={pub} isFlipping={isFlipping} flipActive={flipActive} direction={direction} w={pageWidth} h={pageHeight} />
-          ) : (
-            <Spread pageLeft={currentPage} pageRight={Math.min(totalPages, currentPage + 1)} targetPage={targetPage} totalPages={totalPages} pub={pub} isFlipping={isFlipping} flipActive={flipActive} direction={direction} w={pageWidth} h={pageHeight} />
-          )}
-        </div>
-
-        {/* Search hits */}
-        {hits.length > 0 && (
-          <div className="w-full max-w-3xl rounded-md border border-white/10 bg-[#091227] p-4 text-sm">
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-[color:var(--color-icai-gold-light)]">In-publication results for "{search}"</div>
-            <ul className="divide-y divide-white/10">
-              {hits.map((h) => (
-                <li key={h.page} className="flex items-center justify-between py-2">
-                  <div>
-                    <span className="rounded bg-[color:var(--color-icai-gold)]/20 px-2 py-0.5 text-xs font-semibold text-[color:var(--color-icai-gold-light)]">Page {h.page}</span>
-                    <span className="ml-3 text-white/80">{h.snippet}</span>
+      <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col items-center justify-start gap-4 px-4 py-6">
+        {!scriptsLoaded ? (
+          <div className="text-sm text-white/50 animate-pulse">Loading flipbook engine...</div>
+        ) : (
+          <div
+            className="flex items-center justify-center"
+            style={{ transform: `scale(${zoom})`, transition: "transform 200ms" }}
+          >
+            <div ref={readerRef} className="flipbook shadow-2xl">
+              {Array.from({ length: totalPages }, (_, i) => {
+                const pageNum = i + 1;
+                return (
+                  <div
+                    key={pageNum}
+                    className="page relative select-none"
+                    style={{
+                      background: "linear-gradient(180deg, #fdfcf7, #f6f1e3)",
+                      border: "1px solid #e6dcc2",
+                      boxShadow: "inset 0 0 60px rgba(120, 90, 30, 0.05)",
+                      width: pageWidth,
+                      height: pageHeight
+                    }}
+                  >
+                    <MockPage pageNum={pageNum} pub={pub} w={pageWidth} h={pageHeight} />
                   </div>
-                  <Button size="sm" variant="secondary" onClick={() => jumpTo(h.page)}>Jump</Button>
-                </li>
-              ))}
-            </ul>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
+
+      {/* Search hits */}
+      {hits.length > 0 && (
+        <div className="w-full max-w-3xl rounded-md border border-white/10 bg-[#091227] p-4 text-sm mx-auto mb-6">
+          <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-[color:var(--color-icai-gold-light)]">In-publication results for "{search}"</div>
+          <ul className="divide-y divide-white/10">
+            {hits.map((h) => (
+              <li key={h.page} className="flex items-center justify-between py-2">
+                <div>
+                  <span className="rounded bg-[color:var(--color-icai-gold)]/20 px-2 py-0.5 text-xs font-semibold text-[color:var(--color-icai-gold-light)]">Page {h.page}</span>
+                  <span className="ml-3 text-white/80">{h.snippet}</span>
+                </div>
+                <Button size="sm" variant="secondary" onClick={() => jumpTo(h.page)}>Jump</Button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
 
 // ===== Page rendering =====
-// Each "page" is just a styled card with a fake page layout. The flipping
-// page uses .page-flip-right / .page-flip-left with .is-flipping applied
-// during the animation. transform-origin sits on the spine edge so it
-// rotates like a real book page.
+// Each "page" is just a styled card with a fake page layout.
 
 function MockPage({ pageNum, pub, w, h }: { pageNum: number; pub: NonNullable<ReturnType<typeof getPublication>>; w: number; h: number }) {
+  const totalPages = pub.pages ?? 24;
+
+  if (pageNum === 1) {
+    return (
+      <div
+        className="relative flex flex-col items-center justify-between p-12 text-white overflow-hidden shadow-inner h-full w-full select-none"
+        style={{
+          background: pub.cover,
+        }}
+      >
+        {/* Premium Gold Accent Bars & Ribbon */}
+        <div className="absolute inset-x-0 top-0 h-2 bg-gradient-to-r from-[#c9a24b] via-[#e8c97a] to-[#c9a24b]" />
+        
+        {/* Subtle background crest / texture watermark */}
+        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent pointer-events-none" />
+
+        {/* Header Section */}
+        <div className="w-full text-center space-y-2 z-10 mt-4">
+          <div className="rounded border border-white/20 bg-white/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest inline-block backdrop-blur-md">
+            The Institute of Chartered Accountants of India
+          </div>
+          <p className="text-[10px] text-white/70 uppercase tracking-widest font-medium">
+            {pub.committee}
+          </p>
+        </div>
+
+        {/* Title Section with decorative frame */}
+        <div className="w-full text-center space-y-4 my-auto px-4 z-10">
+          <div className="mx-auto w-12 h-1 bg-[#e8c97a] rounded-full" />
+          <h1 className="text-xl sm:text-2xl font-bold leading-snug tracking-wide text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-white/80 drop-shadow-md">
+            {pub.title}
+          </h1>
+          <div className="mx-auto w-12 h-1 bg-[#e8c97a] rounded-full" />
+          <p className="text-xs text-[#e8c97a] font-medium tracking-wider uppercase">
+            {pub.type} Edition
+          </p>
+        </div>
+
+        {/* Footer Section with Seal and copyright */}
+        <div className="w-full text-center space-y-3 z-10 mb-2">
+          <div className="text-[9px] uppercase tracking-widest text-white/60">
+            Set up by an Act of Parliament
+          </div>
+          <div className="text-[10px] font-semibold tracking-wider text-[#e8c97a]">
+            © ICAI
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (pageNum === totalPages) {
+    return (
+      <div
+        className="relative flex flex-col items-center justify-between p-12 text-white overflow-hidden shadow-inner h-full w-full select-none"
+        style={{
+          background: pub.cover,
+          filter: "brightness(0.85)"
+        }}
+      >
+        <div className="absolute inset-x-0 top-0 h-2 bg-gradient-to-r from-[#c9a24b] via-[#e8c97a] to-[#c9a24b]" />
+        
+        {/* Back Cover Emblem / Crest */}
+        <div className="my-auto text-center space-y-4 z-10 px-4">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-white/20 bg-white/5 backdrop-blur-sm text-[#e8c97a] font-bold text-lg shadow-inner">
+            ICAI
+          </div>
+          <div className="text-xs font-semibold tracking-widest text-[#e8c97a] uppercase">
+            Official Publication
+          </div>
+          <p className="text-[10px] text-white/60 max-w-xs leading-relaxed mx-auto">
+            This digital edition is protected by the Institute of Chartered Accountants of India under secure DRM.
+          </p>
+        </div>
+
+        {/* Footer info */}
+        <div className="w-full text-center space-y-2 z-10 mb-2">
+          <div className="text-[9px] uppercase tracking-widest text-white/50">
+            Institute of Chartered Accountants of India
+          </div>
+          <div className="text-[8px] text-white/40">
+            For member use only. All rights reserved.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Normal pages
   return (
     <div className="relative flex flex-col" style={{ width: w, height: h }}>
       <div className="px-8 pt-8 text-[10px] uppercase tracking-widest text-[color:var(--color-icai-blue)]">
@@ -287,64 +465,6 @@ function MockPage({ pageNum, pub, w, h }: { pageNum: number; pub: NonNullable<Re
         <span>© ICAI</span>
         <span>Page {pageNum}</span>
       </div>
-    </div>
-  );
-}
-
-function Spread({
-  pageLeft, pageRight, targetPage, totalPages, pub, isFlipping, flipActive, direction, w, h,
-}: { pageLeft: number; pageRight: number; targetPage: number; totalPages: number; pub: any; isFlipping: boolean; flipActive: boolean; direction: "next" | "prev" | null; w: number; h: number }) {
-  const visibleLeft = isFlipping && direction ? targetPage : pageLeft;
-  const visibleRight = Math.min(totalPages, visibleLeft + 1);
-
-  return (
-    <div className="book-spread relative flex shadow-2xl" style={{ width: w * 2 + 4 }}>
-      <div className="pointer-events-none absolute inset-y-0 left-1/2 -translate-x-1/2 w-2 bg-gradient-to-r from-black/30 via-black/10 to-black/30" />
-      <div className="page page-curl relative" style={{ width: w, height: h }}>
-        <MockPage pageNum={visibleLeft} pub={pub} w={w} h={h} />
-      </div>
-      <div className="page page-curl relative" style={{ width: w, height: h }}>
-        <MockPage pageNum={visibleRight} pub={pub} w={w} h={h} />
-        {isFlipping && direction === "next" && (
-          <div
-            className={`flip-sheet page-flip-right absolute inset-0 z-10 ${flipActive ? "is-flipping" : ""}`}
-            style={{ transformOrigin: "left center" }}
-          >
-            <div className="page flip-face flip-face-front"><MockPage pageNum={pageRight} pub={pub} w={w} h={h} /></div>
-            <div className="page flip-face flip-face-back"><MockPage pageNum={targetPage} pub={pub} w={w} h={h} /></div>
-          </div>
-        )}
-      </div>
-      {isFlipping && direction === "prev" && (
-        <div
-          className={`flip-sheet page-flip-left absolute inset-y-0 left-0 z-10 ${flipActive ? "is-flipping" : ""}`}
-          style={{ width: w, transformOrigin: "right center" }}
-        >
-          <div className="page flip-face flip-face-front"><MockPage pageNum={pageLeft} pub={pub} w={w} h={h} /></div>
-          <div className="page flip-face flip-face-back"><MockPage pageNum={Math.min(totalPages, targetPage + 1)} pub={pub} w={w} h={h} /></div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function SinglePage({ pageNum, targetPage, pub, isFlipping, flipActive, direction, w, h }: { pageNum: number; targetPage: number; pub: any; isFlipping: boolean; flipActive: boolean; direction: "next" | "prev" | null; w: number; h: number }) {
-  const visiblePage = isFlipping && direction ? targetPage : pageNum;
-
-  return (
-    <div className="book-spread relative shadow-2xl" style={{ width: w, height: h }}>
-      <div className="page page-curl relative h-full w-full">
-        <MockPage pageNum={visiblePage} pub={pub} w={w} h={h} />
-      </div>
-      {isFlipping && (
-        <div
-          className={`flip-sheet absolute inset-0 z-10 ${direction === "next" ? "page-flip-right" : "page-flip-left"} ${flipActive ? "is-flipping" : ""}`}
-          style={{ transformOrigin: direction === "next" ? "left center" : "right center" }}
-        >
-          <div className="page flip-face flip-face-front"><MockPage pageNum={pageNum} pub={pub} w={w} h={h} /></div>
-          <div className="page flip-face flip-face-back"><MockPage pageNum={targetPage} pub={pub} w={w} h={h} /></div>
-        </div>
-      )}
     </div>
   );
 }
