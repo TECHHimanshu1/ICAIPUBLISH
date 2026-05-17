@@ -335,21 +335,3 @@ function SinglePage({ pageNum, pub, isFlipping, flipActive, direction, w, h }: {
     </div>
   );
 }
-
-function SinglePage({ pageNum, pub, isFlipping, direction, w, h }: { pageNum: number; pub: any; isFlipping: boolean; direction: "next" | "prev" | null; w: number; h: number }) {
-  return (
-    <div className="relative shadow-2xl" style={{ width: w, height: h }}>
-      <div className="page page-curl relative h-full w-full">
-        <MockPage pageNum={pageNum} pub={pub} w={w} h={h} />
-      </div>
-      {isFlipping && (
-        <div
-          className={`page absolute inset-0 z-10 ${direction === "next" ? "page-flip-right is-flipping" : "page-flip-left is-flipping"}`}
-          style={{ transformOrigin: direction === "next" ? "left center" : "right center" }}
-        >
-          <MockPage pageNum={pageNum} pub={pub} w={w} h={h} />
-        </div>
-      )}
-    </div>
-  );
-}
