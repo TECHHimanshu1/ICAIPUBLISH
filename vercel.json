@@ -1,17 +1,24 @@
 {
   "version": 2,
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist/client",
+  "functions": {
+    "api/index.js": {
+      "runtime": "nodejs20.x"
+    }
+  },
   "rewrites": [
     {
       "source": "/assets/:path*",
-      "destination": "/dist/client/assets/:path*"
+      "destination": "/assets/:path*"
     },
     {
       "source": "/flipbook/:path*",
-      "destination": "/dist/client/flipbook/:path*"
+      "destination": "/flipbook/:path*"
     },
     {
       "source": "/favicon.ico",
-      "destination": "/dist/client/favicon.ico"
+      "destination": "/favicon.ico"
     },
     {
       "source": "/:path*",
