@@ -1,0 +1,21 @@
+{
+  "version": 2,
+  "rewrites": [
+    {
+      "source": "/assets/:path*",
+      "destination": "/dist/client/assets/:path*"
+    },
+    {
+      "source": "/flipbook/:path*",
+      "destination": "/dist/client/flipbook/:path*"
+    },
+    {
+      "source": "/favicon.ico",
+      "destination": "/dist/client/favicon.ico"
+    },
+    {
+      "source": "/:path*",
+      "destination": "/api/index"
+    }
+  ]
+}
