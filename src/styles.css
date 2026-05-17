@@ -155,7 +155,8 @@
    perspective on the scene + rotateY on page with transform-origin on the
    spine edge. JS toggles .is-flipping; on transitionend we advance
    currentPage and reset the flip state. */
-.book-scene { perspective: 2200px; }
+.book-scene { perspective: 2400px; perspective-origin: center center; }
+.book-spread { transform-style: preserve-3d; }
 .page {
   background: linear-gradient(180deg,#fdfcf7,#f6f1e3);
   border: 1px solid #e6dcc2;
@@ -164,10 +165,35 @@
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
 }
-.page-flip-right { transform-origin: left center; transition: transform 750ms cubic-bezier(.45,.05,.25,1), box-shadow 750ms ease; transform-style: preserve-3d; }
-.page-flip-right.is-flipping { transform: rotateY(-180deg); box-shadow: -30px 20px 60px rgba(0,0,0,.35); }
-.page-flip-left { transform-origin: right center; transition: transform 750ms cubic-bezier(.45,.05,.25,1), box-shadow 750ms ease; transform-style: preserve-3d; }
-.page-flip-left.is-flipping { transform: rotateY(180deg); box-shadow: 30px 20px 60px rgba(0,0,0,.35); }
+.flip-sheet {
+  height: 100%;
+  transform: rotateY(0deg) translateZ(1px);
+  transform-style: preserve-3d;
+  transition: transform 880ms cubic-bezier(.22,.68,.18,1), filter 880ms ease;
+  will-change: transform, filter;
+}
+.page-flip-right.is-flipping { transform: rotateY(-178deg) translateZ(1px); filter: drop-shadow(-28px 18px 34px rgba(0,0,0,.32)); }
+.page-flip-left.is-flipping { transform: rotateY(178deg) translateZ(1px); filter: drop-shadow(28px 18px 34px rgba(0,0,0,.32)); }
+.flip-face {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  transform-style: preserve-3d;
+}
+.flip-face-front { transform: rotateY(0deg) translateZ(.6px); }
+.flip-face-back { transform: rotateY(180deg) translateZ(.6px); }
+.flip-sheet::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(0,0,0,.28), rgba(255,255,255,.18) 42%, rgba(0,0,0,.2));
+  opacity: 0;
+  transition: opacity 880ms ease;
+  backface-visibility: hidden;
+}
+.flip-sheet.is-flipping::after { opacity: .55; }
 .page-curl::after {
   content: ""; position: absolute; right: 0; bottom: 0;
   width: 0; height: 0; border-style: solid;
