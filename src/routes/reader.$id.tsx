@@ -38,6 +38,20 @@ function Reader() {
   const [currentPage, setCurrentPage] = useState(1);
   const [direction, setDirection] = useState<"next" | "prev" | null>(null);
   const [isFlipping, setIsFlipping] = useState(false);
+  const [flipActive, setFlipActive] = useState(false);
+
+  // When a flip starts, the overlay mounts WITHOUT `.is-flipping` so the
+  // browser records a starting transform of rotateY(0). On the next frame
+  // we add the class, which transitions to rotateY(±180deg) — that's what
+  // makes the page actually turn instead of snapping.
+  useEffect(() => {
+    if (!isFlipping) { setFlipActive(false); return; }
+    const r1 = requestAnimationFrame(() => {
+      const r2 = requestAnimationFrame(() => setFlipActive(true));
+      (window as any).__flipRaf = r2;
+    });
+    return () => cancelAnimationFrame(r1);
+  }, [isFlipping]);
   const [zoom, setZoom] = useState(1);
   const [viewMode, setViewMode] = useState<"fit-page" | "fit-width">("fit-page");
   const [pageInput, setPageInput] = useState("1");
@@ -197,9 +211,9 @@ function Reader() {
           style={{ transform: `scale(${zoom})`, transition: "transform 200ms" }}
         >
           {isMobile ? (
-            <SinglePage pageNum={currentPage} pub={pub} isFlipping={isFlipping} direction={direction} w={pageWidth} h={pageHeight} />
+            <SinglePage pageNum={currentPage} pub={pub} isFlipping={isFlipping} flipActive={flipActive} direction={direction} w={pageWidth} h={pageHeight} />
           ) : (
-            <Spread pageLeft={currentPage} pageRight={Math.min(totalPages, currentPage + 1)} pub={pub} isFlipping={isFlipping} direction={direction} w={pageWidth} h={pageHeight} />
+            <Spread pageLeft={currentPage} pageRight={Math.min(totalPages, currentPage + 1)} pub={pub} isFlipping={isFlipping} flipActive={flipActive} direction={direction} w={pageWidth} h={pageHeight} />
           )}
         </div>
 
@@ -273,35 +287,28 @@ function MockPage({ pageNum, pub, w, h }: { pageNum: number; pub: NonNullable<Re
 }
 
 function Spread({
-  pageLeft, pageRight, pub, isFlipping, direction, w, h,
-}: { pageLeft: number; pageRight: number; pub: any; isFlipping: boolean; direction: "next" | "prev" | null; w: number; h: number }) {
+  pageLeft, pageRight, pub, isFlipping, flipActive, direction, w, h,
+}: { pageLeft: number; pageRight: number; pub: any; isFlipping: boolean; flipActive: boolean; direction: "next" | "prev" | null; w: number; h: number }) {
   return (
     <div className="relative flex shadow-2xl" style={{ width: w * 2 + 4 }}>
-      {/* Spine shadow */}
       <div className="pointer-events-none absolute inset-y-0 left-1/2 -translate-x-1/2 w-2 bg-gradient-to-r from-black/30 via-black/10 to-black/30" />
-      {/* Left static page */}
       <div className="page page-curl relative" style={{ width: w, height: h }}>
         <MockPage pageNum={pageLeft} pub={pub} w={w} h={h} />
       </div>
-      {/* Right static page */}
       <div className="page page-curl relative" style={{ width: w, height: h }}>
         <MockPage pageNum={pageRight} pub={pub} w={w} h={h} />
-        {/* Animated overlay page on top of right side when going next:
-            it pivots on the left edge and rotates -180deg, simulating
-            the right page lifting and turning to the left. */}
         {isFlipping && direction === "next" && (
           <div
-            className="page page-flip-right is-flipping absolute inset-0 z-10"
+            className={`page page-flip-right absolute inset-0 z-10 ${flipActive ? "is-flipping" : ""}`}
             style={{ transformOrigin: "left center" }}
           >
             <MockPage pageNum={pageRight} pub={pub} w={w} h={h} />
           </div>
         )}
       </div>
-      {/* Going prev: animate from left side */}
       {isFlipping && direction === "prev" && (
         <div
-          className="page page-flip-left is-flipping absolute inset-y-0 left-0 z-10"
+          className={`page page-flip-left absolute inset-y-0 left-0 z-10 ${flipActive ? "is-flipping" : ""}`}
           style={{ width: w, transformOrigin: "right center" }}
         >
           <MockPage pageNum={pageLeft} pub={pub} w={w} h={h} />
@@ -311,7 +318,7 @@ function Spread({
   );
 }
 
-function SinglePage({ pageNum, pub, isFlipping, direction, w, h }: { pageNum: number; pub: any; isFlipping: boolean; direction: "next" | "prev" | null; w: number; h: number }) {
+function SinglePage({ pageNum, pub, isFlipping, flipActive, direction, w, h }: { pageNum: number; pub: any; isFlipping: boolean; flipActive: boolean; direction: "next" | "prev" | null; w: number; h: number }) {
   return (
     <div className="relative shadow-2xl" style={{ width: w, height: h }}>
       <div className="page page-curl relative h-full w-full">
@@ -319,7 +326,7 @@ function SinglePage({ pageNum, pub, isFlipping, direction, w, h }: { pageNum: nu
       </div>
       {isFlipping && (
         <div
-          className={`page absolute inset-0 z-10 ${direction === "next" ? "page-flip-right is-flipping" : "page-flip-left is-flipping"}`}
+          className={`page absolute inset-0 z-10 ${direction === "next" ? "page-flip-right" : "page-flip-left"} ${flipActive ? "is-flipping" : ""}`}
           style={{ transformOrigin: direction === "next" ? "left center" : "right center" }}
         >
           <MockPage pageNum={pageNum} pub={pub} w={w} h={h} />
