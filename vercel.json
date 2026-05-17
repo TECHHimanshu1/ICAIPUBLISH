@@ -1,23 +1,8 @@
 {
-  "version": 2,
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist/client",
   "rewrites": [
     {
-      "source": "/assets/:path*",
-      "destination": "/assets/:path*"
-    },
-    {
-      "source": "/flipbook/:path*",
-      "destination": "/flipbook/:path*"
-    },
-    {
-      "source": "/favicon.ico",
-      "destination": "/favicon.ico"
-    },
-    {
-      "source": "/:path*",
-      "destination": "/api/index"
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }
